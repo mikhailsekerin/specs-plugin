@@ -1001,6 +1001,98 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
         }
       }
     }
+  } else if ('children' in node && (node as FrameNode).children.length > 0) {
+    // =====================================================================
+    // NON-AUTO-LAYOUT FRAME — calculate padding from children bounding box
+    // =====================================================================
+    const children = (node as FrameNode).children.filter(c => c.visible && 'x' in c && 'y' in c && 'width' in c && 'height' in c);
+    if (children.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const child of children) {
+        minX = Math.min(minX, child.x);
+        minY = Math.min(minY, child.y);
+        maxX = Math.max(maxX, child.x + child.width);
+        maxY = Math.max(maxY, child.y + child.height);
+      }
+
+      if (isFinite(minX)) {
+        const pTop = Math.max(0, minY) * scale;
+        const pLeft = Math.max(0, minX) * scale;
+        const pBottom = Math.max(0, (node.height - maxY)) * scale;
+        const pRight = Math.max(0, (node.width - maxX)) * scale;
+
+        // Top padding
+        if (pTop > MIN_PADDING_TO_SHOW) {
+          const h = createHighlightRect(focusRelX, focusRelY, focusWidth, pTop, COLOR_PADDING, 0.15);
+          measurements.appendChild(h);
+          pos = findNonOverlappingPosition(
+            focusRelX + focusWidth / 2 - 15, focusRelY + pTop / 2 - 10,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(minY)}`, pos.x, pos.y, COLOR_PADDING));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+
+        // Left padding
+        if (pLeft > MIN_PADDING_TO_SHOW) {
+          const h = createHighlightRect(focusRelX, focusRelY, pLeft, focusHeight, COLOR_PADDING, 0.15);
+          measurements.appendChild(h);
+          pos = findNonOverlappingPosition(
+            focusRelX + pLeft / 2 - 15, focusRelY + focusHeight / 2 - 10,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(minX)}`, pos.x, pos.y, COLOR_PADDING));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+
+        // Right padding
+        if (pRight > MIN_PADDING_TO_SHOW) {
+          const h = createHighlightRect(focusRelX + focusWidth - pRight, focusRelY, pRight, focusHeight, COLOR_PADDING, 0.15);
+          measurements.appendChild(h);
+          pos = findNonOverlappingPosition(
+            focusRelX + focusWidth - pRight / 2 - 15, focusRelY + focusHeight / 2 - 10,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(node.width - maxX)}`, pos.x, pos.y, COLOR_PADDING));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+
+        // Bottom padding
+        if (pBottom > MIN_PADDING_TO_SHOW) {
+          const h = createHighlightRect(focusRelX, focusRelY + focusHeight - pBottom, focusWidth, pBottom, COLOR_PADDING, 0.15);
+          measurements.appendChild(h);
+          pos = findNonOverlappingPosition(
+            focusRelX + focusWidth / 2 - 15, focusRelY + focusHeight - pBottom / 2 - 10,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(node.height - maxY)}`, pos.x, pos.y, COLOR_PADDING));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+      }
+    }
+
+    // =====================================================================
+    // 4. CHILDREN DIMENSIONS (RED small badges) — near each child
+    // =====================================================================
+    if (children.length > 0 && children.length <= 8) {
+      const visibleChildren = children.filter(c => c.width >= MIN_CHILD_SIZE && c.height >= MIN_CHILD_SIZE);
+      for (const child of visibleChildren) {
+        const cx = focusRelX + child.x * scale;
+        const cy = focusRelY + child.y * scale;
+        const cw = child.width * scale;
+        const ch = child.height * scale;
+
+        // Child height badge on the right
+        if (ch > 30) {
+          pos = findNonOverlappingPosition(
+            cx + cw + 3, cy + ch / 2 - 10,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.height)}`, pos.x, pos.y, COLOR_DIMENSION));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+      }
+    }
   }
 
   container.appendChild(measurements);
