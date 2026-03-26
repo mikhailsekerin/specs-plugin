@@ -1,0 +1,21 @@
+{
+  "name": "component-spec-generator",
+  "version": "1.0.0",
+  "description": "Generate documentation/spec frames for Figma components",
+  "scripts": {
+    "build": "tsc && cp src/ui.html dist/ui.html",
+    "watch": "tsc --watch & npm run watch:html",
+    "watch:html": "nodemon --watch src/ui.html --exec 'cp src/ui.html dist/ui.html'",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.98.0",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^25.5.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      padding: 16px;
+      background: #ffffff;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #000000;
+      margin-bottom: 4px;
+    }
+
+    .description {
+      font-size: 11px;
+      color: #666666;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+
+    .status {
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+    }
+
+    .status.info {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .option-label {
+      display: flex;
+      align-items: center;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .option-label input[type="radio"] {
+      margin-right: 6px;
+    }
+
+    .sub-option {
+      margin-left: 20px;
+      display: flex;
+      align-items: center;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .sub-option input[type="checkbox"] {
+      margin-right: 6px;
+    }
+
+    .sub-option.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      flex: 1;
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button.primary {
+      background: #18a0fb;
+      color: white;
+    }
+
+    button.primary:hover {
+      background: #1591e6;
+    }
+
+    button.primary:active {
+      background: #1380cc;
+    }
+
+    button.secondary {
+      background: #f0f0f0;
+      color: #333333;
+    }
+
+    button.secondary:hover {
+      background: #e0e0e0;
+    }
+
+    button.secondary:active {
+      background: #d0d0d0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h1>Component Spec Generator</h1>
+      <div class="description">
+        Select a frame or component to generate a documentation board with spacing specifications.
+      </div>
+    </div>
+
+    <div id="status" class="status info">
+      Ready to generate spec
+    </div>
+
+    <div class="options">
+      <div class="option-group">
+        <label class="option-label">
+          <input type="radio" name="mode" value="nested" id="modeNested" checked>
+          Nested frames (measurements for each child)
+        </label>
+        <label class="option-label">
+          <input type="radio" name="mode" value="selected" id="modeSelected">
+          Selected frame only
+        </label>
+        <label class="sub-option" id="listStylesWrapper">
+          <input type="checkbox" id="listStyles">
+          List text styles &amp; icons from nested frames
+        </label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="generate" class="primary">Generate Spec</button>
+      <button id="cancel" class="secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const generateBtn = document.getElementById('generate');
+    const cancelBtn = document.getElementById('cancel');
+    const modeNested = document.getElementById('modeNested');
+    const modeSelected = document.getElementById('modeSelected');
+    const listStylesWrapper = document.getElementById('listStylesWrapper');
+    const listStylesCheckbox = document.getElementById('listStyles');
+
+    function updateSubOption() {
+      if (modeSelected.checked) {
+        listStylesWrapper.classList.remove('disabled');
+      } else {
+        listStylesWrapper.classList.add('disabled');
+        listStylesCheckbox.checked = false;
+      }
+    }
+
+    modeNested.addEventListener('change', updateSubOption);
+    modeSelected.addEventListener('change', updateSubOption);
+    updateSubOption();
+
+    generateBtn.onclick = () => {
+      const mode = modeNested.checked ? 'nested' : 'selected';
+      parent.postMessage({
+        pluginMessage: {
+          type: 'generate-spec',
+          mode: mode,
+          includeChildren: mode === 'nested',
+          listNestedStyles: mode === 'selected' && listStylesCheckbox.checked
+        }
+      }, '*');
+    };
+
+    cancelBtn.onclick = () => {
+      parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+    };
+
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      if (msg.type === 'status') {
+        statusEl.textContent = msg.message;
+        statusEl.className = 'status info';
+      } else if (msg.type === 'success') {
+        statusEl.textContent = msg.message;
+        statusEl.className = 'status success';
+      } else if (msg.type === 'error') {
+        statusEl.textContent = msg.message;
+        statusEl.className = 'status error';
+      }
+    };
+  </script>
+</body>
+</html>
