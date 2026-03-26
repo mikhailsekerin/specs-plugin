@@ -269,6 +269,75 @@ async function createMeasurementBadge(label: string, x: number, y: number, color
   return badge;
 }
 
+const DIMENSION_LINE_GAP = 3; // distance from frame edge to dimension line
+const DIMENSION_SERIF_SIZE = 6; // half-length of end cap serifs
+
+// Creates a dimension line with end-cap serifs and badge centered in the middle.
+// Structure: [serif] [line] [badge] [line] [serif] — all in centered auto-layout.
+async function createDimensionLine(
+  x: number, y: number, length: number,
+  label: string,
+  direction: 'horizontal' | 'vertical',
+  color: RGB = COLOR_DIMENSION
+): Promise<FrameNode> {
+  const serifSize = DIMENSION_SERIF_SIZE * 2;
+  const isH = direction === 'horizontal';
+
+  function createSerif(): FrameNode {
+    const serif = figma.createFrame();
+    serif.name = 'Serif';
+    serif.fills = [{ type: 'SOLID', color: color }];
+    serif.resize(isH ? 1 : serifSize, isH ? serifSize : 1);
+    return serif;
+  }
+
+  function createLineSegment(): FrameNode {
+    const seg = figma.createFrame();
+    seg.name = 'Line Segment';
+    seg.fills = [{ type: 'SOLID', color: color }];
+    seg.resize(isH ? 1 : 1, isH ? 1 : 1);
+    seg.layoutGrow = 1;
+    return seg;
+  }
+
+  // Badge in the middle
+  const badge = figma.createFrame();
+  badge.name = `Badge: ${label}`;
+  badge.layoutMode = 'HORIZONTAL';
+  badge.primaryAxisSizingMode = 'AUTO';
+  badge.counterAxisSizingMode = 'AUTO';
+  badge.paddingTop = 4;
+  badge.paddingRight = 6;
+  badge.paddingBottom = 4;
+  badge.paddingLeft = 6;
+  badge.fills = [{ type: 'SOLID', color }];
+  badge.cornerRadius = 4;
+  const text = await createText(label, 11, 600);
+  text.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+  badge.appendChild(text);
+
+  const frame = figma.createFrame();
+  frame.name = 'Dimension Line';
+  frame.fills = [];
+  frame.clipsContent = false;
+  frame.layoutMode = isH ? 'HORIZONTAL' : 'VERTICAL';
+  frame.counterAxisAlignItems = 'CENTER';
+  frame.primaryAxisSizingMode = 'FIXED';
+  frame.counterAxisSizingMode = 'AUTO';
+  frame.itemSpacing = 0;
+  frame.resize(isH ? length : serifSize, isH ? serifSize : length);
+
+  frame.appendChild(createSerif());
+  frame.appendChild(createLineSegment());
+  frame.appendChild(badge);
+  frame.appendChild(createLineSegment());
+  frame.appendChild(createSerif());
+
+  frame.x = x;
+  frame.y = y;
+  return frame;
+}
+
 function createMeasurementLine(x1: number, y1: number, x2: number, y2: number, color?: RGB): LineNode {
   const line = figma.createLine();
   line.x = x1;
@@ -821,17 +890,18 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
   cloned.y = centerY;
   container.appendChild(cloned);
 
-  // Focus outline — red dashed, matching target reference
+  // Focus outline — violet dashed, 1px
+  const COLOR_FOCUS = { r: 0.56, g: 0.27, b: 0.87 }; // violet
   const focusOutline = figma.createFrame();
   focusOutline.name = 'Focus Outline';
   focusOutline.fills = [];
-  focusOutline.strokes = [{ type: 'SOLID', color: COLOR_DIMENSION }];
-  focusOutline.strokeWeight = 2;
+  focusOutline.strokes = [{ type: 'SOLID', color: COLOR_FOCUS }];
+  focusOutline.strokeWeight = 1;
   focusOutline.dashPattern = [6, 4];
   focusOutline.cornerRadius = 2;
-  focusOutline.resize(focusWidth + 4, focusHeight + 4);
-  focusOutline.x = centerX + focusRelX - 2;
-  focusOutline.y = centerY + focusRelY - 2;
+  focusOutline.resize(focusWidth + 2, focusHeight + 2);
+  focusOutline.x = centerX + focusRelX - 1;
+  focusOutline.y = centerY + focusRelY - 1;
   container.appendChild(focusOutline);
 
   // Measurements overlay — positioned at the root clone origin
@@ -850,27 +920,25 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
   const measurementBounds = { width: cloned.width + 80, height: cloned.height + 80 };
 
   // =====================================================================
-  // 1. FOCUSED NODE DIMENSIONS (RED) — placed near the focus node edges
+  // 1. FOCUSED NODE DIMENSIONS (RED) — dimension lines with serifs + badge
   // =====================================================================
 
-  // Width badge — centred above focus node
-  pos = findNonOverlappingPosition(
-    focusRelX + focusWidth / 2 - 15, focusRelY - 18,
-    BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-  );
-  const wBadge = await createMeasurementBadge(`${width}`, pos.x, pos.y, COLOR_DIMENSION);
-  measurements.appendChild(wBadge);
-  badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+  // Width: horizontal dimension line below focus node, 5px gap, badge centered in line
+  const wLineY = focusRelY + focusHeight + DIMENSION_LINE_GAP;
+  const wLine = await createDimensionLine(focusRelX, wLineY, focusWidth, `${width}`, 'horizontal', COLOR_DIMENSION);
+  measurements.appendChild(wLine);
 
-  // Height badge — centred left of focus node
-  pos = findNonOverlappingPosition(
-    focusRelX - 35, focusRelY + focusHeight / 2 - 10,
-    BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-  );
-  const hBadge = await createMeasurementBadge(`${height}`, pos.x, pos.y, COLOR_DIMENSION);
-  measurements.appendChild(hBadge);
-  badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+  // Height: vertical dimension line to the right of focus node, 5px gap, badge centered in line
+  const hLineX = focusRelX + focusWidth + DIMENSION_LINE_GAP;
+  const hLine = await createDimensionLine(hLineX, focusRelY, focusHeight, `${height}`, 'vertical', COLOR_DIMENSION);
+  measurements.appendChild(hLine);
 
+  // Track placed dimension line bounding boxes to avoid overlaps
+  const serifH = DIMENSION_SERIF_SIZE * 2;
+  const dimLineRects: BadgePosition[] = [
+    { x: focusRelX, y: wLineY, width: focusWidth, height: serifH },
+    { x: hLineX, y: focusRelY, width: serifH, height: focusHeight },
+  ];
 
   // =====================================================================
   // 2. INTERNAL PADDING (LIGHT BLUE) — highlights inside the focused node
@@ -980,7 +1048,7 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
     }
 
     // =====================================================================
-    // 4. CHILDREN DIMENSIONS (RED small badges) — near each child
+    // 4. CHILDREN DIMENSIONS (RED) — dimension lines, shifted to avoid overlaps
     // =====================================================================
     if ('children' in node && node.children.length <= 8) {
       const visibleChildren = node.children.filter(c => c.visible && c.width >= MIN_CHILD_SIZE && c.height >= MIN_CHILD_SIZE);
@@ -990,24 +1058,26 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
         const cw = child.width * scale;
         const ch = child.height * scale;
 
-        // Child width badge above
-        if (cw > 30) {
-          pos = findNonOverlappingPosition(
-            cx + cw / 2 - 15, cy - 18,
-            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-          );
-          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.width)}`, pos.x, pos.y, COLOR_DIMENSION));
-          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        // Skip if child matches focused node dimensions (already measured)
+        const sameWidth = Math.round(child.width) === width;
+        const sameHeight = Math.round(child.height) === height;
+
+        // Child width dimension line, shift down if overlaps existing
+        if (cw > 30 && !sameWidth) {
+          let cwLineY = cy + ch + DIMENSION_LINE_GAP;
+          const cwRect = { x: cx, y: cwLineY, width: cw, height: serifH };
+          while (checkBadgeOverlap(cwRect, dimLineRects)) { cwLineY += serifH + 2; cwRect.y = cwLineY; }
+          measurements.appendChild(await createDimensionLine(cx, cwLineY, cw, `${Math.round(child.width)}`, 'horizontal', COLOR_DIMENSION));
+          dimLineRects.push({ x: cx, y: cwLineY, width: cw, height: serifH });
         }
 
-        // Child height badge on the right
-        if (ch > 30) {
-          pos = findNonOverlappingPosition(
-            cx + cw + 3, cy + ch / 2 - 10,
-            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-          );
-          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.height)}`, pos.x, pos.y, COLOR_DIMENSION));
-          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        // Child height dimension line, shift right if overlaps existing
+        if (ch > 30 && !sameHeight) {
+          let chLineX = cx + cw + DIMENSION_LINE_GAP;
+          const chRect = { x: chLineX, y: cy, width: serifH, height: ch };
+          while (checkBadgeOverlap(chRect, dimLineRects)) { chLineX += serifH + 2; chRect.x = chLineX; }
+          measurements.appendChild(await createDimensionLine(chLineX, cy, ch, `${Math.round(child.height)}`, 'vertical', COLOR_DIMENSION));
+          dimLineRects.push({ x: chLineX, y: cy, width: serifH, height: ch });
         }
       }
     }
@@ -1082,7 +1152,7 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
     }
 
     // =====================================================================
-    // 4. CHILDREN DIMENSIONS (RED small badges) — near each child
+    // 4. CHILDREN DIMENSIONS (RED) — dimension lines, shifted to avoid overlaps
     // =====================================================================
     if (children.length > 0 && children.length <= 8) {
       const visibleChildren = children.filter(c => c.width >= MIN_CHILD_SIZE && c.height >= MIN_CHILD_SIZE);
@@ -1092,24 +1162,20 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
         const cw = child.width * scale;
         const ch = child.height * scale;
 
-        // Child width badge above
         if (cw > 30) {
-          pos = findNonOverlappingPosition(
-            cx + cw / 2 - 15, cy - 18,
-            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-          );
-          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.width)}`, pos.x, pos.y, COLOR_DIMENSION));
-          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+          let cwLineY = cy + ch + DIMENSION_LINE_GAP;
+          const cwRect = { x: cx, y: cwLineY, width: cw, height: serifH };
+          while (checkBadgeOverlap(cwRect, dimLineRects)) { cwLineY += serifH + 2; cwRect.y = cwLineY; }
+          measurements.appendChild(await createDimensionLine(cx, cwLineY, cw, `${Math.round(child.width)}`, 'horizontal', COLOR_DIMENSION));
+          dimLineRects.push({ x: cx, y: cwLineY, width: cw, height: serifH });
         }
 
-        // Child height badge on the right
         if (ch > 30) {
-          pos = findNonOverlappingPosition(
-            cx + cw + 3, cy + ch / 2 - 10,
-            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
-          );
-          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.height)}`, pos.x, pos.y, COLOR_DIMENSION));
-          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+          let chLineX = cx + cw + DIMENSION_LINE_GAP;
+          const chRect = { x: chLineX, y: cy, width: serifH, height: ch };
+          while (checkBadgeOverlap(chRect, dimLineRects)) { chLineX += serifH + 2; chRect.x = chLineX; }
+          measurements.appendChild(await createDimensionLine(chLineX, cy, ch, `${Math.round(child.height)}`, 'vertical', COLOR_DIMENSION));
+          dimLineRects.push({ x: chLineX, y: cy, width: serifH, height: ch });
         }
       }
     }
