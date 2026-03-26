@@ -990,6 +990,16 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
         const cw = child.width * scale;
         const ch = child.height * scale;
 
+        // Child width badge above
+        if (cw > 30) {
+          pos = findNonOverlappingPosition(
+            cx + cw / 2 - 15, cy - 18,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.width)}`, pos.x, pos.y, COLOR_DIMENSION));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
+
         // Child height badge on the right
         if (ch > 30) {
           pos = findNonOverlappingPosition(
@@ -1081,6 +1091,16 @@ async function createMeasurementPreview(node: SceneNode, rootNode: SceneNode, pr
         const cy = focusRelY + child.y * scale;
         const cw = child.width * scale;
         const ch = child.height * scale;
+
+        // Child width badge above
+        if (cw > 30) {
+          pos = findNonOverlappingPosition(
+            cx + cw / 2 - 15, cy - 18,
+            BADGE_WIDTH_APPROX, BADGE_HEIGHT_APPROX, badgePositions, measurementBounds
+          );
+          measurements.appendChild(await createMeasurementBadge(`${Math.round(child.width)}`, pos.x, pos.y, COLOR_DIMENSION));
+          badgePositions.push({ x: pos.x, y: pos.y, width: BADGE_WIDTH_APPROX, height: BADGE_HEIGHT_APPROX });
+        }
 
         // Child height badge on the right
         if (ch > 30) {
